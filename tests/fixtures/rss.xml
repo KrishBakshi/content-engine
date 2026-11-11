@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>Example</title>
+<item><title>First &amp;amp; <b>bold</b> post</title><link>https://example.com/a</link>
+<guid>https://example.com/a</guid><description>&lt;p&gt;Hello   world&lt;/p&gt;</description>
+<pubDate>Tue, 10 Nov 2026 08:30:00 +0100</pubDate></item>
+<item><title>Second</title><link>https://example.com/b</link><description>Comments</description></item>
+<item><title>Third</title><link>https://example.com/c</link></item>
+</channel></rss>

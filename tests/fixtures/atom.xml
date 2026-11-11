@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Releases</title>
+<entry><id>tag:github.com,2008:Repository/1/b7000</id><title>b7000</title>
+<link rel="alternate" type="text/html" href="https://github.com/ggml-org/llama.cpp/releases/tag/b7000"/>
+<updated>2026-11-09T12:00:00Z</updated><content type="html">&lt;p&gt;Faster Q4 kernels&lt;/p&gt;</content></entry>
+<entry><id>oai:arXiv.org:2611.00001v1</id><title>A
+  Paper Title</title><link href="https://arxiv.org/abs/2611.00001"/>
+<summary>Abstract text.</summary><published>2026-11-10T00:00:00-05:00</published></entry>
+</feed>
