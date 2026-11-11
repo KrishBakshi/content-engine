@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.svg" alt="content-engine logo: a hand-drawn funnel with gears and a steaming pipe" width="112">
+</p>
+
 <h1 align="center">content-engine</h1>
 
 <p align="center">
@@ -6,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/banner.svg" alt="Feeds from Hacker News, Reddit, arXiv, GitHub and engineering blogs flow into the content engine, which writes one clean brief" width="840">
+  <img src="assets/banner.svg" alt="Hand-drawn sketch: Hacker News, Reddit, arXiv, GitHub and engineering blogs flow into a funnel with gears and a steaming pipe, labelled content-engine, which writes one brief" width="840">
 </p>
 
 <p align="center">
