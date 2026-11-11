@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 320" width="840" height="320" role="img"
+     aria-label="Feeds from Hacker News, Reddit, arXiv, GitHub and engineering blogs flow into the content engine, which writes one clean brief.">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1020"/>
+      <stop offset="1" stop-color="#151b33"/>
+    </linearGradient>
+    <linearGradient id="flow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#38bdf8" stop-opacity="0.15"/>
+      <stop offset="1" stop-color="#38bdf8" stop-opacity="0.9"/>
+    </linearGradient>
+    <radialGradient id="core" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fde68a"/>
+      <stop offset="0.55" stop-color="#f59e0b"/>
+      <stop offset="1" stop-color="#b45309"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <path id="p1" d="M 222 62 C 300 62, 320 160, 372 160"/>
+    <path id="p2" d="M 222 111 C 290 111, 320 160, 372 160"/>
+    <path id="p3" d="M 222 160 L 372 160"/>
+    <path id="p4" d="M 222 209 C 290 209, 320 160, 372 160"/>
+    <path id="p5" d="M 222 258 C 300 258, 320 160, 372 160"/>
+    <path id="out" d="M 468 160 L 588 160"/>
+  </defs>
+
+  <rect width="840" height="320" rx="18" fill="url(#bg)"/>
+
+  <!-- sources -->
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" text-anchor="middle">
+    <g fill="#111a33" stroke="#2b3a67">
+      <rect x="72" y="45"  width="150" height="34" rx="17"/>
+      <rect x="72" y="94"  width="150" height="34" rx="17"/>
+      <rect x="72" y="143" width="150" height="34" rx="17"/>
+      <rect x="72" y="192" width="150" height="34" rx="17"/>
+      <rect x="72" y="241" width="150" height="34" rx="17"/>
+    </g>
+    <g fill="#cbd5e1">
+      <text x="147" y="67">Hacker News</text>
+      <text x="147" y="116">Reddit</text>
+      <text x="147" y="165">arXiv · HF papers</text>
+      <text x="147" y="214">GitHub</text>
+      <text x="147" y="263">Eng blogs</text>
+    </g>
+  </g>
+
+  <!-- flows in -->
+  <g fill="none" stroke="url(#flow)" stroke-width="2" stroke-linecap="round">
+    <use href="#p1"/><use href="#p2"/><use href="#p3"/><use href="#p4"/><use href="#p5"/>
+  </g>
+  <g fill="#7dd3fc">
+    <circle r="3.5"><animateMotion dur="2.6s" repeatCount="indefinite" begin="0s"><mpath href="#p1"/></animateMotion></circle>
+    <circle r="3.5"><animateMotion dur="2.6s" repeatCount="indefinite" begin="0.5s"><mpath href="#p2"/></animateMotion></circle>
+    <circle r="3.5"><animateMotion dur="2.6s" repeatCount="indefinite" begin="1.0s"><mpath href="#p3"/></animateMotion></circle>
+    <circle r="3.5"><animateMotion dur="2.6s" repeatCount="indefinite" begin="1.5s"><mpath href="#p4"/></animateMotion></circle>
+    <circle r="3.5"><animateMotion dur="2.6s" repeatCount="indefinite" begin="2.0s"><mpath href="#p5"/></animateMotion></circle>
+  </g>
+
+  <!-- engine -->
+  <g transform="translate(420 160)">
+    <circle r="62" fill="none" stroke="#f59e0b" stroke-opacity="0.25" stroke-width="1.5" stroke-dasharray="4 8">
+      <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="24s" repeatCount="indefinite"/>
+    </circle>
+    <circle r="48" fill="#111a33" stroke="#f59e0b" stroke-opacity="0.6" stroke-width="1.5"/>
+    <circle r="20" fill="url(#core)" filter="url(#glow)">
+      <animate attributeName="r" values="19;22;19" dur="2.6s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" text-anchor="middle">
+    <text x="420" y="252" font-size="15" font-weight="700" fill="#fbbf24">content-engine</text>
+    <text x="420" y="272" font-size="11" fill="#94a3b8">normalize · dedupe · summarize</text>
+    <text x="420" y="60" font-size="11" fill="#64748b">no keys · no tokens · no browser</text>
+  </g>
+
+  <!-- flow out -->
+  <use href="#out" fill="none" stroke="#f59e0b" stroke-opacity="0.8" stroke-width="2" stroke-linecap="round"/>
+  <circle r="3.5" fill="#fde68a"><animateMotion dur="1.3s" repeatCount="indefinite"><mpath href="#out"/></animateMotion></circle>
+
+  <!-- brief -->
+  <g transform="translate(592 78)">
+    <rect width="176" height="164" rx="10" fill="#f8fafc"/>
+    <rect x="16" y="18" width="92" height="9" rx="4.5" fill="#0f172a"/>
+    <g fill="#cbd5e1">
+      <rect x="16" y="42"  width="144" height="6" rx="3"/>
+      <rect x="16" y="54"  width="120" height="6" rx="3"/>
+      <rect x="16" y="78"  width="144" height="6" rx="3"/>
+      <rect x="16" y="90"  width="104" height="6" rx="3"/>
+      <rect x="16" y="114" width="144" height="6" rx="3"/>
+      <rect x="16" y="126" width="128" height="6" rx="3"/>
+    </g>
+    <g fill="#38bdf8">
+      <rect x="16" y="42" width="34" height="6" rx="3"/>
+      <rect x="16" y="78" width="46" height="6" rx="3"/>
+      <rect x="16" y="114" width="28" height="6" rx="3"/>
+    </g>
+    <rect x="16" y="146" width="60" height="5" rx="2.5" fill="#e2e8f0"/>
+  </g>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" text-anchor="middle">
+    <text x="680" y="264" font-size="13" fill="#cbd5e1">brief.md · items.json</text>
+    <text x="680" y="282" font-size="11" fill="#64748b">old runs cleaned after 4 days</text>
+  </g>
+</svg>
