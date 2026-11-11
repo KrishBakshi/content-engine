@@ -44,11 +44,11 @@ def line(p: Point, q: Point, step: float = 6) -> list[Point]:
     return [(p[0] + (q[0] - p[0]) * i / count, p[1] + (q[1] - p[1]) * i / count) for i in range(count + 1)]
 
 
-def polygon(points: list[Point], closed: bool = True) -> list[Point]:
+def polygon(points: list[Point], closed: bool = True, step: float = 6) -> list[Point]:
     pts: list[Point] = []
     edges = list(zip(points, points[1:] + points[:1])) if closed else list(zip(points, points[1:]))
     for p, q in edges:
-        pts += line(p, q)[:-1]
+        pts += line(p, q, step)[:-1]
     return pts + [points[0] if closed else points[-1]]
 
 
@@ -70,15 +70,34 @@ def circle(cx: float, cy: float, r: float) -> list[Point]:
     return arc(cx, cy, r, 0, 2 * math.pi)
 
 
-def gear(cx: float, cy: float, r_out: float, r_in: float, teeth: int, phase: float = 0.0) -> list[Point]:
-    """Outline of a cog: flat-topped teeth around a root circle."""
-    pitch = 2 * math.pi / teeth
+def gear(cx: float, cy: float, module: float, teeth: int, phase: float = 0.0, stroke: float = 0.0) -> list[Point]:
+    """Outline of a spur gear with trapezoid teeth, one tooth centred on angle `phase`.
+
+    `module` is the tooth size: pitch radius = module * teeth / 2, so two gears mesh only
+    if they share a module. `stroke` is the pen width the outline will be drawn with; the
+    teeth are thinned and the roots deepened by that much, so the drawn (stroked) teeth of
+    a meshing pair sit in each other's gaps without overlapping."""
+    r_pitch = module * teeth / 2
+    addendum = 0.55 * module  # stubby teeth: a low tooth count looks like a star otherwise
+    r_out, r_in = r_pitch + addendum, r_pitch - (addendum + stroke + 0.15 * module)
+    width = math.pi * module / 2 - stroke - 0.12 * module  # tooth thickness on the pitch circle
     corners: list[Point] = []
     for i in range(teeth):
-        a = phase + i * pitch
-        for r, half in ((r_in, 0.30), (r_out, 0.17), (r_out, -0.17), (r_in, -0.30)):
-            corners.append((cx + r * math.cos(a - half * pitch), cy + r * math.sin(a - half * pitch)))
-    return polygon(corners)
+        a = phase + i * 2 * math.pi / teeth
+        for r, half in ((r_in, -0.55 * width), (r_out, -0.36 * width), (r_out, 0.36 * width), (r_in, 0.55 * width)):
+            corners.append((cx + r * math.cos(a + half / r), cy + r * math.sin(a + half / r)))
+    return polygon(corners, step=3)
+
+
+def meshed_pair(cx: float, cy: float, module: float, teeth_a: int, teeth_b: int, angle: float,
+                stroke: float = 0.0) -> tuple[list[Point], Point, list[Point], Point]:
+    """Two gears in mesh. Gear A is centred on (cx, cy); gear B sits in direction `angle`,
+    exactly one pitch radius of each away, with a gap facing the tooth A points at it."""
+    distance = module * (teeth_a + teeth_b) / 2
+    bx, by = cx + distance * math.cos(angle), cy + distance * math.sin(angle)
+    a = gear(cx, cy, module, teeth_a, angle, stroke)
+    b = gear(bx, by, module, teeth_b, angle + math.pi - math.pi / teeth_b, stroke)
+    return a, (cx, cy), b, (bx, by)
 
 
 def squiggle(x: float, y_bottom: float, y_top: float, sway: float, waves: float = 1.5,
@@ -123,14 +142,18 @@ class Hand:
         return out
 
     def stroke(self, pts: list[Point], width: float = 1.8, color: str = INK, amp: float = 1.3,
-               passes: int = 2) -> str:
-        """The outline, drawn `passes` times. Smoothed through midpoints so corners soften a little."""
+               passes: int = 2, smooth: bool = True) -> str:
+        """The outline, drawn `passes` times. Smoothed through midpoints so corners soften a
+        little; `smooth=False` keeps corners crisp (gear teeth need their flat tips)."""
         paths = []
         for _ in range(passes):
             d = self._drift(pts, amp)
             cmds = [f"M{n(d[0][0])} {n(d[0][1])}"]
-            for a, b in zip(d[1:], d[2:]):
-                cmds.append(f"Q{n(a[0])} {n(a[1])} {n((a[0] + b[0]) / 2)} {n((a[1] + b[1]) / 2)}")
+            if smooth:
+                for a, b in zip(d[1:], d[2:]):
+                    cmds.append(f"Q{n(a[0])} {n(a[1])} {n((a[0] + b[0]) / 2)} {n((a[1] + b[1]) / 2)}")
+            else:
+                cmds += [f"L{n(x)} {n(y)}" for x, y in d[1:-1]]
             cmds.append(f"L{n(d[-1][0])} {n(d[-1][1])}")
             paths.append(f'<path d="{" ".join(cmds)}" fill="none" stroke="{color}" stroke-width="{n(width)}" '
                          f'stroke-linecap="round" stroke-linejoin="round"/>')
@@ -215,14 +238,15 @@ def banner(letter: Lettering) -> str:
                    f'<animate attributeName="opacity" values="0;1;0" dur="2.2s" begin="{delay}s" '
                    f'repeatCount="indefinite"/></g>')
     out += [hand.solid(funnel, "#fff9db"), hand.hachure(funnel, "#ffd43b"), hand.stroke(funnel, 2.2, amp=1.5)]
-    # Two meshing gears inside, turning opposite ways (8 and 6 teeth, so periods of 12s and 9s).
-    for cx, cy, r_out, r_in, teeth, phase, color, spin in ((386, 160, 21, 15, 8, 0.0, "#74c0fc", ("0", "360", 12)),
-                                                          (422, 153, 14, 10, 6, 0.52, "#ffa8a8", ("360", "0", 9))):
-        cog = gear(cx, cy, r_out, r_in, teeth, phase)
-        out.append(f'<g>{hand.solid(cog, color)}{hand.stroke(cog, 1.7, amp=0.5, passes=1)}'
-                   f'{hand.solid(circle(cx, cy, r_in * 0.3), INK)}'
-                   f'<animateTransform attributeName="transform" type="rotate" from="{spin[0]} {cx} {cy}" '
-                   f'to="{spin[1]} {cx} {cy}" dur="{spin[2]}s" repeatCount="indefinite"/></g>')
+    # Two gears in mesh, 8 and 6 teeth. They turn opposite ways with periods in the same
+    # 8:6 ratio, so the teeth stay engaged all the way round.
+    big, big_c, small, small_c = meshed_pair(383, 161, 4.8, 8, 6, math.radians(-12), stroke=1.0)
+    for cog, (cx, cy), color, spin in ((big, big_c, "#74c0fc", ("0", "360", 20)),
+                                      (small, small_c, "#ffa8a8", ("360", "0", 15))):
+        out.append(f'<g>{hand.solid(cog, color)}{hand.stroke(cog, 1.0, amp=0.15, passes=1, smooth=False)}'
+                   f'{hand.solid(circle(cx, cy, 2.6), INK)}'
+                   f'<animateTransform attributeName="transform" type="rotate" from="{spin[0]} {n(cx)} {n(cy)}" '
+                   f'to="{spin[1]} {n(cx)} {n(cy)}" dur="{spin[2]}s" repeatCount="indefinite"/></g>')
     out += [letter.text("no keys, no tokens, no browser", 420, 62, 13.5, MUTED),
             letter.text("content-engine", 420, 268, 24),
             letter.text("normalize, dedupe, summarize", 420, 292, 13.5, MUTED)]
@@ -274,12 +298,11 @@ def logo() -> str:
     # Steam leans left as it rises, into the corner the smokestack leaves empty.
     for x, top, sway, drift in ((338, 50, 9, -34), (366, 70, -8, -16)):
         out.append(hand.stroke(squiggle(x, 104, top, sway, drift=drift), 11, amp=0.8, passes=1))
-    for cx, cy, r_out, r_in, teeth, phase, color in ((224, 248, 47, 34, 8, 0.0, "#4dabf7"),
-                                                    (300, 232, 31, 22, 6, 0.52, "#ff8787")):
-        cog = gear(cx, cy, r_out, r_in, teeth, phase)
-        hub = circle(cx, cy, r_in * 0.36)
-        out += [hand.solid(cog, color), hand.stroke(cog, 8.5, amp=1.0, passes=1),
-                hand.solid(hub, "#ffffff"), hand.stroke(hub, 6, amp=0.5, passes=1)]
+    big, big_c, small, small_c = meshed_pair(228, 250, 10, 8, 6, math.radians(-12), stroke=3)
+    for cog, (cx, cy), hub_r, color in ((big, big_c, 11, "#4dabf7"), (small, small_c, 7, "#ff8787")):
+        hub = circle(cx, cy, hub_r)
+        out += [hand.solid(cog, color), hand.stroke(cog, 3, amp=0.3, passes=1, smooth=False),
+                hand.solid(hub, "#ffffff"), hand.stroke(hub, 5, amp=0.4, passes=1)]
     out += [hand.stroke(line((166, 420), (346, 420)), 16, amp=2.0, passes=1),
             hand.stroke(line((202, 454), (310, 454)), 16, amp=2.0, passes=1)]
     return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" '
