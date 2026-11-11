@@ -1,0 +1,31 @@
+# content-engine: one fetch + retention cleanup per start. Triggered by content-engine.timer.
+# Generated from deploy/templates/content-engine.service.template by deploy/render.py.
+[Unit]
+Description=content-engine: fetch tech & AI news, then delete data older than 4 days
+Documentation=file:///opt/content-engine/deploy/README.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=content-engine
+Group=content-engine
+WorkingDirectory=/opt/content-engine
+Environment=CONTENT_ENGINE_DATA_DIR=/var/lib/content-engine
+Environment=CONTENT_ENGINE_RETENTION_DAYS=4
+ExecStart=/opt/content-engine/.venv/bin/content-engine run
+# 75 = another run still holds the lock; the next tick will run, so it is not a failure.
+SuccessExitStatus=75
+TimeoutStartSec=10min
+# systemd creates /var/lib/content-engine owned by content-engine on first start.
+StateDirectory=content-engine
+
+# Hardening: the engine only needs outbound HTTPS and write access to its data dir.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ReadWritePaths=/var/lib/content-engine
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true

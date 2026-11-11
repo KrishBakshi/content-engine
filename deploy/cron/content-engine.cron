@@ -1,0 +1,8 @@
+# content-engine for /etc/cron.d (system crontab format: schedule, user, command).
+# Generated from deploy/templates/content-engine.cron.template by deploy/render.py.
+# Output goes to one log file per day; `run` deletes log files older than the retention window.
+SHELL=/bin/sh
+CONTENT_ENGINE_DATA_DIR=/var/lib/content-engine
+CONTENT_ENGINE_RETENTION_DAYS=4
+
+0 * * * * content-engine mkdir -p /var/lib/content-engine/logs && cd /opt/content-engine && /opt/content-engine/.venv/bin/content-engine run >> /var/lib/content-engine/logs/run-$(date +\%Y-\%m-\%d).log 2>&1

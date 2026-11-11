@@ -1,0 +1,15 @@
+# Starts content-engine.service on a schedule.
+# Generated from deploy/templates/content-engine.timer.template by deploy/render.py.
+[Unit]
+Description=content-engine schedule (hourly)
+
+[Timer]
+OnCalendar=hourly
+# Run once at boot if a scheduled run was missed while the machine was off.
+Persistent=true
+# Spread the start so the public endpoints don't see requests on the exact minute.
+RandomizedDelaySec=5min
+Unit=content-engine.service
+
+[Install]
+WantedBy=timers.target
