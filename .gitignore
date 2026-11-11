@@ -1,0 +1,19 @@
+# --- runtime output (scraped data, logs, rendered deploy files) ---
+data/
+deploy/out/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# --- OS / editor ---
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
