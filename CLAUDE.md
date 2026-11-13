@@ -31,7 +31,18 @@ live run and check `status.json`: every source should show `ok: true`.
 - `collectors/feed.py`: generic RSS 2.0 + Atom (`FeedCollector`, `parse_feed`). Most sources are
   just a `FeedCollector(...)` line. `collectors/api.py`: HN Algolia, HF papers, GitHub search.
   `collectors/reddit.py`: one multireddit request split per subreddit.
-- `sources.py`: the registry, and the only file that changes when adding or removing a feed. Its
+  `collectors/listing.py`: for sites with no feed (Anthropic): article links from a listing
+  page, then title, summary and date from each article's meta tags. More fragile than a feed
+  and one request per article, so use it only when there is no feed.
+- Categories (`schema.CATEGORIES`, also the section order of the brief): `agents` and
+  `physical_ai` are the user's focus topics and come first, then `community`, `research`,
+  `tooling`, `engineering_blogs`. A category is a topic, so `agents` holds blogs, papers,
+  repos and releases about agents together.
+- `sources.py`: the registry, and the only file that changes when adding or removing a feed.
+  Order matters: it is the order within a section, and on a duplicate URL the earlier source
+  keeps the item. `max_age_days` is only for feeds that post rarely (a weekly newsletter, a
+  spec with two releases a year), so their last posts don't repeat in every brief for months.
+  It is not a topic filter and the general sections don't use it. Its
   docstring lists where the registry differs from the spec and why. Keep that list current.
 - `engine.py`: runs collectors concurrently (same-`host` collectors in sequence), records a
   `SourceReport` per source, and dedupes by URL. A failing source never fails the run.
@@ -40,6 +51,10 @@ live run and check `status.json`: every source should show `ok: true`.
   a word with the title (filters site-wide blurbs). Skips reddit/x hosts, refuses private IPs
   on every redirect hop, reads at most 1 MB per page. Results are cached in
   `summary_cache.json`; a miss is retried after 6 hours.
+- `progress.py`: the terminal spinner. `run` shows it only when stderr is a terminal (and not
+  with `--plain`): log lines are held back while it spins, then only warnings and errors are
+  printed (everything with `-v`), then a one-line result. Under systemd or cron nothing changes: no spinner, logs stream as they happen. The
+  engine reports progress through `on_progress(stage, done, total, detail)`; it never prints.
 - `render.py`: markdown brief. `storage.py`: data layout, atomic writes, lock, retention.
   `cli.py`: `run` / `clean` / `sources` and the exit codes.
 - `deploy/`: `templates/*.template` are the source of truth. `systemd/` and `cron/` hold them
@@ -75,7 +90,7 @@ live run and check `status.json`: every source should show `ok: true`.
 - Exit codes `0` / `1` / `75` are documented in `cli.py` and `deploy/README.md`. Schedulers and
   monitors depend on them, so keep both in step.
 - **Be polite to the endpoints.** Reddit allows about one anonymous request per minute, which is
-  why both subreddits come from one request. Don't add a second Reddit collector. Add the
+  why all subreddits come from one request. Don't add a second Reddit collector. Add the
   subreddit to the existing one.
 
 ## When a source breaks

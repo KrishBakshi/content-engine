@@ -33,11 +33,14 @@ uv sync                                # install
 uv run content-engine run --print      # fetch everything and print the brief
 ```
 
-That's it. The run takes a few seconds and writes its results to `./data`.
+That's it. The run takes a few seconds and writes its results to `./data`. While it runs
+you see a spinner with the current step; when it's done, it prints a one-line result
+(`✔ 37/37 sources · 163 items · 6.8s`), plus a line for any source that failed.
+Add `-v` to see the full log.
 
 ## What you get
 
-Each run reads 15 public sources, keeps the interesting items, and writes two files you'll
+Each run reads about 40 public sources, keeps the interesting items, and writes two files you'll
 actually use:
 
 | File | What it is |
@@ -74,11 +77,14 @@ publisher wrote for it. Nothing is rewritten and no AI is involved.
 
 | Topic | Where it comes from |
 |---|---|
+| **Agent AI** | Anthropic engineering · LangChain · GitHub AI blog · Microsoft Agent Framework · Latent Space · Simon Willison · The New Stack · arXiv cs.MA · new agent repos on GitHub · OpenAI Agents SDK and MCP spec releases · Hacker News (agents) · r/AI_Agents |
+| **Physical AI** | NVIDIA robotics (blog and developer blog) · The Robot Report · IEEE Spectrum robotics · Robohub · Weekly Robotics · arXiv cs.RO · new robotics repos on GitHub · LeRobot and Isaac Lab releases · Hacker News (robotics) · r/robotics |
 | **Community** | Hacker News · Reddit (r/LocalLLaMA, r/MachineLearning) · Lobsters · Techmeme |
 | **Research** | Hugging Face daily papers · arXiv (cs.AI, cs.LG, cs.CL) |
 | **Tooling** | New LLM repos on GitHub · llama.cpp releases · vLLM releases |
-| **Engineering blogs** | Google Research · OpenAI · Meta Engineering · Cloudflare |
+| **Engineering blogs** | Anthropic research and science · Google Research · OpenAI · Meta Engineering · Cloudflare |
 
+Agent AI and Physical AI are the focus topics, so they come first in the brief.
 `uv run content-engine sources` prints the live list.
 
 ## Commands
@@ -86,6 +92,7 @@ publisher wrote for it. Nothing is rewritten and no AI is involved.
 ```sh
 uv run content-engine run              # fetch, save, and delete data older than 4 days
 uv run content-engine run --print      # same, and print the brief
+uv run content-engine run --plain      # no spinner, plain log lines (automatic on servers)
 uv run content-engine sources          # list the sources
 uv run content-engine clean --dry-run  # show what the cleanup would delete
 uv run pytest -q                       # run the tests (no internet needed)
@@ -124,10 +131,13 @@ Most sources are one line in [`src/content_engine/sources.py`](src/content_engin
 For any RSS or Atom feed:
 
 ```python
-FeedCollector("simon_willison", "engineering_blogs", "https://simonwillison.net/atom/everything/", 4, "Blog"),
+FeedCollector("huggingface_blog", "engineering_blogs", "https://huggingface.co/blog/feed.xml", 4, "Blog"),
 ```
 
 The arguments are: a name, a topic, the feed URL, how many items to take, and a label.
+The topic is one of `agents`, `physical_ai`, `community`, `research`, `tooling`,
+`engineering_blogs`. For a feed that posts rarely, add `max_age_days=30` so old posts
+don't sit in every brief.
 Run `uv run content-engine run --print` and it shows up in the brief.
 
 ## Use it from Python
