@@ -1,8 +1,8 @@
 """On-disk layout, atomic writes, the run lock, and retention cleanup.
 
     <data_dir>/
-      runs/<YYYYmmddTHHMMSSZ>/   one directory per run: items.json, brief.md, report.json
-      latest/                    copy of the newest run's items.json and brief.md
+      runs/<YYYYmmddTHHMMSSZ>/   one directory per run: items.json, trending.json, brief.md, report.json
+      latest/                    copy of the newest run's items.json, trending.json and brief.md
       status.json                the last run's outcome, for dashboards and health checks
       history.jsonl              one line per run (state, counts), pruned to the retention window
       summary_cache.json         url -> summary taken from the linked page (enrich.py), pruned the same way
@@ -31,6 +31,7 @@ from typing import Iterator
 
 from content_engine.engine import RunResult
 from content_engine.render import to_markdown
+from content_engine.trending import find_trending
 
 log = logging.getLogger(__name__)
 
@@ -153,7 +154,8 @@ def save_run(data_dir: Path, result: RunResult, started: datetime, duration_s: f
     """Write the run directory, then refresh latest/, status.json and history.jsonl.
 
     The files are made in a chain: items are marked `delivered` against the record of
-    earlier runs and written as items.json; brief.md is then rendered from that same list;
+    earlier runs and written as items.json; trending.json is worked out from that list and
+    brief.md rendered from both;
     report.json counts, per source, how many items were new and how many already delivered."""
     rid = run_id(started)
     stamp = started.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -163,7 +165,10 @@ def save_run(data_dir: Path, result: RunResult, started: datetime, duration_s: f
     record = load_delivered(data_dir)
     payload = [{**i.to_dict(), "delivered": i.url in record} for i in result.items]
     items_json = _dump(payload)
-    brief = to_markdown(payload, started, [s.name for s in result.sources if not s.ok], new_only=new_only)
+    trending = find_trending(payload)
+    trending_json = _dump(trending)
+    brief = to_markdown(payload, started, [s.name for s in result.sources if not s.ok], new_only=new_only,
+                        trending=trending)
 
     sources = []
     for s in result.sources:
@@ -180,6 +185,7 @@ def save_run(data_dir: Path, result: RunResult, started: datetime, duration_s: f
         "items": len(payload),
         "new_items": len(payload) - already,
         "already_delivered": already,
+        "trending_topics": [t["label"] for t in trending["topics"]],
         "sources_ok": sum(s.ok for s in result.sources),
         "sources_total": len(result.sources),
         "failed_sources": [s.name for s in result.sources if not s.ok],
@@ -195,6 +201,7 @@ def save_run(data_dir: Path, result: RunResult, started: datetime, duration_s: f
     shutil.rmtree(tmp, ignore_errors=True)
     tmp.mkdir()
     (tmp / "items.json").write_text(items_json, encoding="utf-8")
+    (tmp / "trending.json").write_text(trending_json, encoding="utf-8")
     (tmp / "brief.md").write_text(brief, encoding="utf-8")
     (tmp / "report.json").write_text(_dump(report), encoding="utf-8")
     final = runs / rid
@@ -205,6 +212,7 @@ def save_run(data_dir: Path, result: RunResult, started: datetime, duration_s: f
     latest = data_dir / "latest"
     latest.mkdir(exist_ok=True)
     _write_atomic(latest / "items.json", items_json)
+    _write_atomic(latest / "trending.json", trending_json)
     _write_atomic(latest / "brief.md", brief)
 
     # Only now, with the run safely on disk, do its items count as delivered.

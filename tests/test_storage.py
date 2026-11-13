@@ -25,7 +25,7 @@ def _save(data, at, ok=True):
 def test_save_run_layout(tmp_path):
     run_dir = _save(tmp_path, NOW)
     assert run_dir == tmp_path / "runs" / "20261110T120000Z"
-    assert sorted(p.name for p in run_dir.iterdir()) == ["brief.md", "items.json", "report.json"]
+    assert sorted(p.name for p in run_dir.iterdir()) == ["brief.md", "items.json", "report.json", "trending.json"]
     assert (tmp_path / "latest" / "brief.md").read_text() == (run_dir / "brief.md").read_text()
     status = json.loads((tmp_path / "status.json").read_text())
     assert status["state"] == "ok" and status["items"] == 1 and status["sources_ok"] == 1
