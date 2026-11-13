@@ -5,7 +5,9 @@ found by probing every endpoint on 2026-11-10:
 - Reddit `hot.json` returns 403 to unauthenticated clients; `hot.rss` (Atom) works but has
   no score, so Reddit items carry metric "hot" instead of points. Both subreddits come from
   one request (see collectors/reddit.py for the rate limit).
-- Anthropic publishes no feed (`/feed.xml`, `/rss.xml`, `/news/rss.xml` are all 404): not included.
+- Anthropic publishes no feed (`/feed.xml`, `/rss.xml`, `/news/rss.xml` are all 404). It is
+  read from its listing pages instead (collectors/listing.py), added 2026-11-13 at the
+  user's request: /engineering, /research and /science.
 - `ai.meta.com/blog/rss.xml` is 404; Meta's engineering blog feed is used instead.
 - llama.cpp moved from `ggerganov/` to `ggml-org/`.
 
@@ -27,6 +29,7 @@ from __future__ import annotations
 from content_engine.collectors.api import GitHubSearchCollector, HackerNewsCollector, HuggingFacePapersCollector
 from content_engine.collectors.base import BaseCollector
 from content_engine.collectors.feed import FeedCollector
+from content_engine.collectors.listing import ListingPageCollector
 from content_engine.collectors.reddit import RedditCollector
 
 
@@ -38,6 +41,15 @@ def default_collectors() -> list[BaseCollector]:
         # --- agents: building and running AI agents on the backend ---
         HackerNewsCollector("hacker_news_agents", words="agent agents agentic MCP", min_points=25, limit=6,
                             category="agents", title_only=True, empty_ok=True),
+        # No feed: read from the listing pages. /engineering is agent harness and tooling work, so
+        # it goes under agents; an article also listed on /research or /science stays with the
+        # first listing that has it.
+        ListingPageCollector("anthropic", [
+            ("anthropic_engineering", "agents", "https://www.anthropic.com/engineering"),
+            ("anthropic_research", "engineering_blogs", "https://www.anthropic.com/research"),
+            ("anthropic_science", "engineering_blogs", "https://www.anthropic.com/science"),
+        ], link_pattern=r"/(research|engineering|science)/[a-z0-9-]+", per_listing=4, site_name="Anthropic",
+            site_blurb="Anthropic is an AI safety and research company", max_age_days=60),
         FeedCollector("langchain_blog", "agents", "https://www.langchain.com/blog/rss.xml", 3, "Blog"),
         FeedCollector("github_blog_ai", "agents", "https://github.blog/ai-and-ml/feed/", 3, "Blog"),
         FeedCollector("microsoft_agent_framework", "agents", "https://devblogs.microsoft.com/agent-framework/feed/",
