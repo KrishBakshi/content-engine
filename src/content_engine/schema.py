@@ -7,6 +7,7 @@ import re
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from urllib.parse import urlsplit
 
 SUMMARY_MAX = 250  # the spec said 300; 250 is enough to say what an item is
 # Order is the order of sections in the brief: the two focus topics first.
@@ -30,9 +31,33 @@ class Item:
     # True when an earlier run already carried this url. Collectors leave it False; storage
     # sets it when the run is saved, by checking the record of delivered urls.
     delivered: bool = False
+    # Other sources that carried the same link this run, as {"source", "metric"} (a blog post
+    # that is also on Hacker News). Set by the engine where it used to drop the duplicate.
+    also_in: tuple[dict, ...] = ()
 
-    def to_dict(self) -> dict[str, str]:
-        return asdict(self)
+    def to_dict(self) -> dict:
+        return {**asdict(self), "also_in": [dict(a) for a in self.also_in]}
+
+
+_TRACKING = ("utm_", "ref=", "ref_src=", "source=", "fbclid=", "gclid=")
+
+
+def canonical_url(url: str) -> str:
+    """A key for "same link": no scheme, no www, no trailing slash, no fragment or tracking
+    parameters. Only for comparing; items keep the url their source gave."""
+    parts = urlsplit(url.strip())
+    host = parts.netloc.lower().removeprefix("www.")
+    query = "&".join(p for p in parts.query.split("&") if p and not p.lower().startswith(_TRACKING))
+    return host + parts.path.rstrip("/") + (f"?{query}" if query else "")
+
+
+def source_family(source: str) -> str:
+    """Sources that are one outlet under several names count as one voice: three Hacker News
+    queries, four subreddits, five arXiv categories."""
+    for family in ("hacker_news", "reddit", "arxiv", "github_new", "anthropic", "nvidia"):
+        if source.startswith(family):
+            return family
+    return source
 
 
 def clean_text(text: str | None) -> str:

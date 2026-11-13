@@ -5,14 +5,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Callable
 
 import httpx
 
 from content_engine import enrich as enrich_mod
 from content_engine.collectors.base import BaseCollector
-from content_engine.schema import Item
+from content_engine.schema import Item, canonical_url, source_family
 
 log = logging.getLogger(__name__)
 
@@ -91,7 +91,8 @@ async def run(collectors: list[BaseCollector], summary_cache: dict[str, dict] | 
         if on_progress:
             on_progress("fetch", finished, len(collectors), collector.name)
 
-    seen: set[str] = set()
+    seen: dict[str, int] = {}          # canonical url -> index in result.items
+    echoes: dict[str, list[dict]] = {}  # canonical url -> other sources that carried it
     groups: dict[object, list[BaseCollector]] = {}
     for c in collectors:
         groups.setdefault(c.host or id(c), []).append(c)
@@ -112,13 +113,29 @@ async def run(collectors: list[BaseCollector], summary_cache: dict[str, dict] | 
             result.sources.append(SourceReport(collector.name, collector.category, False, 0, ms, error,
                                                collector.empty_ok))
             continue
-        # Drop repeats across sources (an HN link to an arXiv paper, a release in two feeds).
-        fresh = [i for i in outcome if i.url and i.url not in seen]
-        seen.update(i.url for i in fresh)
+        # A link another source already carried is not listed twice, but the repeat is kept as
+        # a signal: being picked up elsewhere is what makes a story trend (trending.py).
+        fresh = []
+        for item in outcome:
+            if not item.url:
+                continue
+            key = canonical_url(item.url)
+            if key in seen:
+                echoes.setdefault(key, []).append({"source": item.source, "metric": item.metric})
+            else:
+                seen[key] = len(result.items) + len(fresh)
+                fresh.append(item)
         result.items.extend(fresh)
         log.info("source %s: %d items in %dms", collector.name, len(fresh), ms)
         result.sources.append(SourceReport(collector.name, collector.category, True, len(fresh), ms, "",
                                            collector.empty_ok, [i.url for i in fresh]))
+
+    for key, others in echoes.items():
+        item = result.items[seen[key]]
+        # The same outlet under another name (two Hacker News queries) is not a second voice.
+        others = [o for o in others if source_family(o["source"]) != source_family(item.source)]
+        if others:
+            result.items[seen[key]] = replace(item, also_in=tuple(others))
 
     if summary_cache is not None:
         async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}) as client:
