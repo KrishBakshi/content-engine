@@ -151,10 +151,9 @@ def test_registry_names_are_unique_and_categories_known():
 
 def test_brief_puts_focus_sections_first_with_readable_headings():
     from datetime import datetime, timezone
-    from content_engine.engine import RunResult
     from content_engine.render import to_markdown
-    mk = lambda cat: Item(cat, "s", cat, f"title {cat}", f"https://x/{cat}", "", "m", "")
-    brief = to_markdown(RunResult(items=[mk("community"), mk("physical_ai"), mk("agents")]),
+    mk = lambda cat: Item(cat, "s", cat, f"title {cat}", f"https://x/{cat}", "", "m", "").to_dict()
+    brief = to_markdown([mk("community"), mk("physical_ai"), mk("agents")],
                         datetime(2026, 11, 13, tzinfo=timezone.utc))
-    headings = [line for line in brief.splitlines() if line.startswith("## ")]
-    assert headings == ["## Agent AI", "## Physical AI", "## Community"]
+    headings = [line for line in brief.splitlines() if line.startswith("#")][1:]
+    assert headings == ["## New", "### Agent AI", "### Physical AI", "### Community"]

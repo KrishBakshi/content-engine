@@ -6,12 +6,14 @@
       status.json                the last run's outcome, for dashboards and health checks
       history.jsonl              one line per run (state, counts), pruned to the retention window
       summary_cache.json         url -> summary taken from the linked page (enrich.py), pruned the same way
+      delivered.json             url -> first run that carried it and when it was last seen; this is
+                                 what marks an item `delivered` in later runs
       logs/                      cron output (systemd logs go to the journal instead)
       .lock                      held while a run or cleanup is in progress
 
 Cleanup only touches what this module creates: run directories whose name parses as a
-run id, stale `.tmp-*` directories, `*.log` files in logs/, history lines, and summary-cache
-entries. Anything else placed under the data dir is left alone.
+run id, stale `.tmp-*` directories, `*.log` files in logs/, history lines, summary-cache
+entries, and delivered-record entries. Anything else placed under the data dir is left alone.
 """
 
 from __future__ import annotations
@@ -28,6 +30,7 @@ from pathlib import Path
 from typing import Iterator
 
 from content_engine.engine import RunResult
+from content_engine.render import to_markdown
 
 log = logging.getLogger(__name__)
 
@@ -52,6 +55,7 @@ class CleanupReport:
     kept_runs: int = 0
     pruned_history_lines: int = 0
     pruned_cache_entries: int = 0
+    pruned_delivered_entries: int = 0
 
 
 def run_id(at: datetime) -> str:
@@ -114,29 +118,77 @@ def _parse_stamp(value: str) -> datetime | None:
         return None
 
 
-def save_run(data_dir: Path, result: RunResult, brief: str, started: datetime, duration_s: float,
-             cleanup: CleanupReport | None = None) -> Path:
-    """Write the run directory, then refresh latest/, status.json and history.jsonl."""
+DELIVERED_FILE = "delivered.json"
+
+
+def load_delivered(data_dir: Path) -> dict[str, dict]:
+    """url -> {"first_run", "last_seen"} for every item an earlier run carried.
+
+    If the record is missing (first run after an upgrade, or it was deleted) it is rebuilt
+    from the runs still on disk, so existing history counts as delivered."""
+    path = data_dir / DELIVERED_FILE
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(record, dict):
+            return record
+    except FileNotFoundError:
+        pass
+    except (OSError, json.JSONDecodeError):
+        log.warning("%s is unreadable; rebuilding it from saved runs", path)
+    record = {}
+    runs = data_dir / "runs"
+    for run in sorted(p for p in runs.iterdir() if parse_run_id(p.name)) if runs.is_dir() else []:
+        try:
+            items = json.loads((run / "items.json").read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        stamp = parse_run_id(run.name).strftime("%Y-%m-%dT%H:%M:%SZ")
+        for item in items:
+            record.setdefault(item["url"], {"first_run": run.name})["last_seen"] = stamp
+    return record
+
+
+def save_run(data_dir: Path, result: RunResult, started: datetime, duration_s: float,
+             cleanup: CleanupReport | None = None, new_only: bool = False) -> Path:
+    """Write the run directory, then refresh latest/, status.json and history.jsonl.
+
+    The files are made in a chain: items are marked `delivered` against the record of
+    earlier runs and written as items.json; brief.md is then rendered from that same list;
+    report.json counts, per source, how many items were new and how many already delivered."""
     rid = run_id(started)
+    stamp = started.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     runs = data_dir / "runs"
     runs.mkdir(parents=True, exist_ok=True)
 
+    record = load_delivered(data_dir)
+    payload = [{**i.to_dict(), "delivered": i.url in record} for i in result.items]
+    items_json = _dump(payload)
+    brief = to_markdown(payload, started, [s.name for s in result.sources if not s.ok], new_only=new_only)
+
+    sources = []
+    for s in result.sources:
+        entry = {k: v for k, v in asdict(s).items() if k != "urls"}
+        entry["already_delivered"] = sum(url in record for url in s.urls)
+        entry["new"] = len(s.urls) - entry["already_delivered"]
+        sources.append(entry)
+    already = sum(item["delivered"] for item in payload)
     report = {
         "run_id": rid,
-        "started_at": started.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "started_at": stamp,
         "duration_s": round(duration_s, 2),
         "state": result.state,
-        "items": len(result.items),
+        "items": len(payload),
+        "new_items": len(payload) - already,
+        "already_delivered": already,
         "sources_ok": sum(s.ok for s in result.sources),
         "sources_total": len(result.sources),
         "failed_sources": [s.name for s in result.sources if not s.ok],
         # Answered but gave nothing: the quiet way a source breaks (changed format, moved feed).
         "empty_sources": [s.name for s in result.sources if s.ok and s.items == 0 and not s.empty_ok],
-        "sources": [asdict(s) for s in result.sources],
+        "sources": sources,
     }
     if result.enrichment is not None:
         report["enrichment"] = result.enrichment.to_dict()
-    items_json = _dump([i.to_dict() for i in result.items])
 
     # Build in a temp dir and rename, so a reader never sees a half-written run.
     tmp = runs / f"{TMP_PREFIX}{rid}"
@@ -155,8 +207,13 @@ def save_run(data_dir: Path, result: RunResult, brief: str, started: datetime, d
     _write_atomic(latest / "items.json", items_json)
     _write_atomic(latest / "brief.md", brief)
 
-    keys = ("run_id", "started_at", "duration_s", "state", "items", "sources_ok", "sources_total",
-            "failed_sources", "empty_sources")
+    # Only now, with the run safely on disk, do its items count as delivered.
+    for item in payload:
+        record.setdefault(item["url"], {"first_run": rid})["last_seen"] = stamp
+    _write_atomic(data_dir / DELIVERED_FILE, json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+
+    keys = ("run_id", "started_at", "duration_s", "state", "items", "new_items", "already_delivered",
+            "sources_ok", "sources_total", "failed_sources", "empty_sources")
     line = {k: report[k] for k in keys}
     with open(data_dir / "history.jsonl", "a", encoding="utf-8") as fh:
         fh.write(json.dumps(line) + "\n")
@@ -273,5 +330,18 @@ def cleanup(data_dir: Path, retention_days: float, now: datetime | None = None, 
         report.pruned_cache_entries = len(cache) - len(fresh)
         if report.pruned_cache_entries and not dry_run:
             save_summary_cache(data_dir, fresh)
+
+    if (data_dir / DELIVERED_FILE).is_file():
+        record = load_delivered(data_dir)
+        # Pruned by when a url was last seen, not first seen: a post that is still in its feed
+        # is refreshed every run and so can never expire and come back marked as new.
+        kept = {}
+        for url, entry in record.items():
+            seen = _parse_stamp(entry.get("last_seen", "")) if isinstance(entry, dict) else None
+            if seen is not None and seen >= cutoff:
+                kept[url] = entry
+        report.pruned_delivered_entries = len(record) - len(kept)
+        if report.pruned_delivered_entries and not dry_run:
+            _write_atomic(data_dir / DELIVERED_FILE, json.dumps(kept, ensure_ascii=False, sort_keys=True) + "\n")
 
     return report

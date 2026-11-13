@@ -12,7 +12,7 @@ import httpx
 
 from content_engine import enrich as enrich_mod
 from content_engine.collectors.base import BaseCollector
-from content_engine.schema import CATEGORIES, Item
+from content_engine.schema import Item
 
 log = logging.getLogger(__name__)
 
@@ -32,6 +32,9 @@ class SourceReport:
     duration_ms: int
     error: str = ""
     empty_ok: bool = False
+    # The urls this source contributed after de-duplication. Used to count new vs already
+    # delivered per source; not written to the report.
+    urls: list[str] = field(default_factory=list, repr=False)
 
 
 @dataclass
@@ -47,12 +50,6 @@ class RunResult:
         if ok == len(self.sources):
             return "ok"
         return "partial" if ok else "failed"
-
-    def by_category(self) -> dict[str, list[Item]]:
-        grouped: dict[str, list[Item]] = {c: [] for c in CATEGORIES}
-        for item in self.items:
-            grouped.setdefault(item.category, []).append(item)
-        return grouped
 
 
 async def _timed(collector: BaseCollector, client: httpx.AsyncClient) -> tuple[list[Item] | BaseException, int]:
@@ -121,7 +118,7 @@ async def run(collectors: list[BaseCollector], summary_cache: dict[str, dict] | 
         result.items.extend(fresh)
         log.info("source %s: %d items in %dms", collector.name, len(fresh), ms)
         result.sources.append(SourceReport(collector.name, collector.category, True, len(fresh), ms, "",
-                                           collector.empty_ok))
+                                           collector.empty_ok, [i.url for i in fresh]))
 
     if summary_cache is not None:
         async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}) as client:

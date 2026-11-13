@@ -70,8 +70,8 @@ class Spinner:
         self.stream.flush()
 
 
-def result_line(state: str, sources_ok: int, sources_total: int, items: int, seconds: float,
-                brief_path: str, stream: TextIO = sys.stderr) -> str:
+def result_line(state: str, sources_ok: int, sources_total: int, items: int, new_items: int,
+                seconds: float, brief_path: str, stream: TextIO = sys.stderr) -> str:
     mark, code = {"ok": ("✔", "32"), "partial": ("!", "33")}.get(state, ("✖", "31"))
-    return (f"{_paint(mark, code, stream)} {sources_ok}/{sources_total} sources · {items} items · "
-            f"{seconds:.1f}s · brief: {brief_path}")
+    return (f"{_paint(mark, code, stream)} {sources_ok}/{sources_total} sources · {items} items "
+            f"({new_items} new) · {seconds:.1f}s · brief: {brief_path}")

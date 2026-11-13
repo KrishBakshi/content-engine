@@ -45,10 +45,10 @@ def test_spinner_draws_the_current_step_then_cleans_up(monkeypatch):
 
 def test_result_line_marks_each_state(monkeypatch):
     monkeypatch.setenv("NO_COLOR", "1")
-    line = progress.result_line("ok", 37, 37, 163, 6.84, "data/latest/brief.md", io.StringIO())
-    assert line == "✔ 37/37 sources · 163 items · 6.8s · brief: data/latest/brief.md"
-    assert progress.result_line("partial", 36, 37, 150, 5, "b", io.StringIO()).startswith("! 36/37")
-    assert progress.result_line("failed", 0, 37, 0, 5, "b", io.StringIO()).startswith("✖ 0/37")
+    line = progress.result_line("ok", 37, 37, 163, 14, 6.84, "data/latest/brief.md", io.StringIO())
+    assert line == "✔ 37/37 sources · 163 items (14 new) · 6.8s · brief: data/latest/brief.md"
+    assert progress.result_line("partial", 36, 37, 150, 3, 5, "b", io.StringIO()).startswith("! 36/37")
+    assert progress.result_line("failed", 0, 37, 0, 0, 5, "b", io.StringIO()).startswith("✖ 0/37")
 
 
 def test_engine_reports_each_finished_source():

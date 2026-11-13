@@ -27,6 +27,9 @@ class Item:
     summary: str
     metric: str
     published_at: str  # ISO 8601 UTC, or "" when the source gives no date
+    # True when an earlier run already carried this url. Collectors leave it False; storage
+    # sets it when the run is saved, by checking the record of delivered urls.
+    delivered: bool = False
 
     def to_dict(self) -> dict[str, str]:
         return asdict(self)

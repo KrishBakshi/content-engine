@@ -21,7 +21,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from content_engine import engine, progress, storage
-from content_engine.render import to_markdown
 from content_engine.sources import default_collectors
 
 EXIT_LOCKED = 75
@@ -52,7 +51,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
     say(f"Fetching sources 0/{len(collectors)}")
     cache = None if args.no_enrich else storage.load_summary_cache(args.data_dir)
     result = asyncio.run(engine.run(collectors, summary_cache=cache, on_progress=on_progress))
-    brief = to_markdown(result, started)
 
     with storage.lock(args.data_dir):
         if cache is not None:
@@ -60,21 +58,25 @@ def _cmd_run(args: argparse.Namespace) -> int:
         say(f"Deleting data older than {args.retention_days:g} days")
         report = None if args.no_clean else storage.cleanup(args.data_dir, args.retention_days)
         say("Saving the run")
-        run_dir = storage.save_run(args.data_dir, result, brief, started, time.monotonic() - t0, report)
+        # items.json is written first (each item marked delivered or new), then brief.md from it.
+        run_dir = storage.save_run(args.data_dir, result, started, time.monotonic() - t0, report,
+                                   new_only=args.new_only)
+    saved = json.loads((run_dir / "report.json").read_text(encoding="utf-8"))
 
     ok = sum(s.ok for s in result.sources)
-    log.info("run %s: state=%s items=%d sources=%d/%d dir=%s", run_dir.name, result.state,
-             len(result.items), ok, len(result.sources), run_dir)
+    log.info("run %s: state=%s items=%d new=%d already_delivered=%d sources=%d/%d dir=%s", run_dir.name,
+             result.state, saved["items"], saved["new_items"], saved["already_delivered"], ok,
+             len(result.sources), run_dir)
     if report is not None:
         log.info("cleanup: %s", asdict(report))
     if spinner:
         # Interactive: spinner off, then any warnings held back during the run, then the result.
         args.finish_interactive()
-        print(progress.result_line(result.state, ok, len(result.sources), len(result.items),
+        print(progress.result_line(result.state, ok, len(result.sources), saved["items"], saved["new_items"],
                                    time.monotonic() - t0, str(args.data_dir / "latest" / "brief.md")),
               file=sys.stderr)
     if args.print:
-        sys.stdout.write(brief)
+        sys.stdout.write((run_dir / "brief.md").read_text(encoding="utf-8"))
     return 1 if result.state == "failed" else 0
 
 
@@ -111,6 +113,10 @@ def build_parser() -> argparse.ArgumentParser:
                        help="keep feed summaries as they are; don't fetch linked pages for weak ones")
     p_run.add_argument("--plain", action="store_true",
                        help="no spinner; print log lines as they happen (automatic when not in a terminal)")
+    p_run.add_argument("--new-only", action="store_true",
+                       default=os.environ.get("CONTENT_ENGINE_NEW_ONLY", "") not in ("", "0", "false"),
+                       help="leave already-delivered items out of brief.md (items.json always has everything; "
+                            "env CONTENT_ENGINE_NEW_ONLY=1)")
     p_run.add_argument("--print", action="store_true", help="also write the markdown brief to stdout")
     p_run.set_defaults(func=_cmd_run)
 
