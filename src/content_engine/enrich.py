@@ -22,6 +22,7 @@ import socket
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timedelta, timezone
 from html.parser import HTMLParser
+from typing import Callable
 from urllib.parse import urljoin, urlsplit
 
 import httpx
@@ -228,11 +229,26 @@ def _cache_hit(entry: dict | None, now: datetime) -> str | None:
 
 
 async def enrich(items: list[Item], client: httpx.AsyncClient, cache: dict[str, dict],
-                 now: datetime | None = None) -> tuple[list[Item], EnrichStats]:
+                 now: datetime | None = None,
+                 on_progress: Callable[[int, int], None] | None = None) -> tuple[list[Item], EnrichStats]:
     """Return items with weak summaries filled where possible. Updates `cache` in place
-    (url -> {"summary", "at"}). Items that stay weak keep their original summary."""
+    (url -> {"summary", "at"}). Items that stay weak keep their original summary.
+    `on_progress(done, total)` is called as each weak item is settled."""
     now = now or datetime.now(timezone.utc)
     stats = EnrichStats()
+    total_weak = sum(is_weak(i.summary, i.title) for i in items)
+    settled = 0
+
+    async def tracked(item: Item) -> Item:
+        nonlocal settled
+        was_weak = is_weak(item.summary, item.title)
+        out = await one(item)
+        if was_weak:
+            settled += 1
+            if on_progress:
+                on_progress(settled, total_weak)
+        return out
+
     sem = asyncio.Semaphore(CONCURRENCY)
     stamp = now.strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -263,6 +279,6 @@ async def enrich(items: list[Item], client: httpx.AsyncClient, cache: dict[str, 
         stats.failed += 1
         return item
 
-    out = await asyncio.gather(*(one(i) for i in items))
+    out = await asyncio.gather(*(tracked(i) for i in items))
     log.info("enrich: %s", stats.to_dict())
     return list(out), stats

@@ -6,6 +6,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
+from typing import Callable
 
 import httpx
 
@@ -63,20 +64,36 @@ async def _timed(collector: BaseCollector, client: httpx.AsyncClient) -> tuple[l
     return result, int((time.monotonic() - start) * 1000)
 
 
-async def _host_queue(group: list[BaseCollector], client: httpx.AsyncClient, spacing: float):
+async def _host_queue(group: list[BaseCollector], client: httpx.AsyncClient, spacing: float,
+                      done: Callable[[BaseCollector], None]):
     outcomes = []
     for i, collector in enumerate(group):
         if i and spacing:
             await asyncio.sleep(spacing)
         outcomes.append(await _timed(collector, client))
+        done(collector)
     return outcomes
 
 
-async def run(collectors: list[BaseCollector], summary_cache: dict[str, dict] | None = None) -> RunResult:
+# Called as on_progress(stage, done, total, detail). Stages: "fetch" (detail = the source that
+# just finished) and "enrich" (weak summaries looked up so far).
+Progress = Callable[[str, int, int, str], None]
+
+
+async def run(collectors: list[BaseCollector], summary_cache: dict[str, dict] | None = None,
+              on_progress: Progress | None = None) -> RunResult:
     """Different hosts run concurrently; collectors on one host run in sequence.
     With `summary_cache` (url -> entry, updated in place), weak summaries are then filled
     from the linked pages (enrich.py); without it, items are returned as the feeds gave them."""
     result = RunResult()
+    finished = 0
+
+    def source_done(collector: BaseCollector) -> None:
+        nonlocal finished
+        finished += 1
+        if on_progress:
+            on_progress("fetch", finished, len(collectors), collector.name)
+
     seen: set[str] = set()
     groups: dict[object, list[BaseCollector]] = {}
     for c in collectors:
@@ -84,7 +101,7 @@ async def run(collectors: list[BaseCollector], summary_cache: dict[str, dict] | 
 
     async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}, follow_redirects=True) as client:
         per_group = await asyncio.gather(*(
-            _host_queue(g, client, HOST_SPACING_S.get(key, 0.0) if isinstance(key, str) else 0.0)
+            _host_queue(g, client, HOST_SPACING_S.get(key, 0.0) if isinstance(key, str) else 0.0, source_done)
             for key, g in groups.items()
         ))
     by_collector = {id(c): o for g, outs in zip(groups.values(), per_group) for c, o in zip(g, outs)}
@@ -108,5 +125,7 @@ async def run(collectors: list[BaseCollector], summary_cache: dict[str, dict] | 
 
     if summary_cache is not None:
         async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}) as client:
-            result.items, result.enrichment = await enrich_mod.enrich(result.items, client, summary_cache)
+            result.items, result.enrichment = await enrich_mod.enrich(
+                result.items, client, summary_cache,
+                on_progress=(lambda d, t: on_progress("enrich", d, t, "")) if on_progress else None)
     return result
