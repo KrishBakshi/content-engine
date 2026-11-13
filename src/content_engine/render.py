@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from content_engine.engine import RunResult
+from content_engine.schema import CATEGORY_LABELS
 
 
 def to_markdown(result: RunResult, generated_at: datetime) -> str:
@@ -12,7 +13,7 @@ def to_markdown(result: RunResult, generated_at: datetime) -> str:
     for category, items in result.by_category().items():
         if not items:
             continue
-        lines += [f"## {category.replace('_', ' ').title()}", ""]
+        lines += [f"## {CATEGORY_LABELS.get(category) or category.replace('_', ' ').title()}", ""]
         for item in items:
             lines.append(f"- **[{item.title}]({item.url})** (`{item.source}` | {item.metric})")
             if item.summary:

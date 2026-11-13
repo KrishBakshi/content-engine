@@ -100,3 +100,61 @@ def test_text_helpers():
     assert truncate("alpha beta gamma delta", 15) == "alpha beta..."  # never mid-word
     long = "word " * 100
     assert len(truncate(long)) <= SUMMARY_MAX == 250
+
+
+# --- topic sections: agents and physical AI ---------------------------------------------------
+
+def test_reddit_split_puts_each_subreddit_in_its_category():
+    feed = b"""<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">
+<entry><id>1</id><title>A</title><link href="https://www.reddit.com/r/AI_Agents/comments/1/a/"/></entry>
+<entry><id>2</id><title>R</title><link href="https://www.reddit.com/r/robotics/comments/2/r/"/></entry>
+<entry><id>3</id><title>L</title><link href="https://www.reddit.com/r/LocalLLaMA/comments/3/l/"/></entry>
+</feed>"""
+    items = parse_feed(feed, source="reddit", category="community", limit=10, metric="hot")
+    out = split_by_subreddit(items, {"LocalLLaMA": "community", "AI_Agents": "agents", "robotics": "physical_ai"}, 5)
+    assert [(i.source, i.category) for i in out] == [
+        ("reddit_ai_agents", "agents"), ("reddit_robotics", "physical_ai"), ("reddit_localllama", "community")]
+
+
+def test_wordpress_footer_is_stripped():
+    feed = b"""<?xml version="1.0"?><rss version="2.0"><channel><item><title>Viam Launchpad</title>
+<link>https://x/1</link><description>Launchpad helps startups ship robots. The post Viam Launchpad appeared
+first on The Robot Report.</description></item></channel></rss>"""
+    (item,) = parse_feed(feed, source="s", category="physical_ai", limit=1, metric="News")
+    assert item.summary == "Launchpad helps startups ship robots."
+
+
+def test_newer_than_drops_old_items_and_keeps_undated():
+    from datetime import datetime, timezone
+    from content_engine.collectors.feed import newer_than
+    now = datetime(2026, 11, 13, tzinfo=timezone.utc)
+    mk = lambda published: Item("1", "s", "agents", "t", "https://x", "", "m", published)
+    items = [mk("2026-11-10T00:00:00Z"), mk("2026-07-28T00:00:00Z"), mk(""), mk("not a date")]
+    assert [i.published_at for i in newer_than(items, 30, now)] == ["2026-11-10T00:00:00Z", "", "not a date"]
+
+
+def test_slow_feed_with_age_cap_may_be_empty():
+    from content_engine.collectors.feed import FeedCollector
+    assert FeedCollector("mcp", "agents", "https://x/f", max_age_days=45).empty_ok is True
+    assert FeedCollector("blog", "agents", "https://x/f").empty_ok is False
+
+
+def test_registry_names_are_unique_and_categories_known():
+    from content_engine.schema import CATEGORIES
+    from content_engine.sources import default_collectors
+    collectors = default_collectors()
+    names = [c.name for c in collectors]
+    assert len(names) == len(set(names))
+    assert {c.category for c in collectors} <= set(CATEGORIES)
+    assert {"agents", "physical_ai"} <= {c.category for c in collectors}
+
+
+def test_brief_puts_focus_sections_first_with_readable_headings():
+    from datetime import datetime, timezone
+    from content_engine.engine import RunResult
+    from content_engine.render import to_markdown
+    mk = lambda cat: Item(cat, "s", cat, f"title {cat}", f"https://x/{cat}", "", "m", "")
+    brief = to_markdown(RunResult(items=[mk("community"), mk("physical_ai"), mk("agents")]),
+                        datetime(2026, 11, 13, tzinfo=timezone.utc))
+    headings = [line for line in brief.splitlines() if line.startswith("## ")]
+    assert headings == ["## Agent AI", "## Physical AI", "## Community"]

@@ -35,11 +35,17 @@ def parse_hacker_news(payload: dict[str, Any], *, source: str, category: str) ->
 
 
 class HackerNewsCollector(BaseCollector):
-    category = "community"
+    """`title_only` is for narrow topic searches: by default Algolia also matches the words
+    in the story's url and text, and near-spellings, which lets unrelated posts in. `empty_ok` is for topics
+    that don't reach the front page every day."""
 
     def __init__(self, name: str = "hacker_news", words: str = "AI LLM", hours_back: int = 24,
-                 min_points: int = 25, limit: int = 10):
+                 min_points: int = 25, limit: int = 10, category: str = "community",
+                 title_only: bool = False, empty_ok: bool = False):
         self.name = name
+        self.category = category
+        self.title_only = title_only
+        self.empty_ok = empty_ok
         self.words = words
         self.hours_back = hours_back
         self.min_points = min_points
@@ -47,7 +53,7 @@ class HackerNewsCollector(BaseCollector):
 
     async def fetch(self, client: httpx.AsyncClient) -> list[Item]:
         since = int(time.time()) - self.hours_back * 3600
-        res = await self.get(client, "https://hn.algolia.com/api/v1/search_by_date", params={
+        params = {
             # Algolia has no OR operator ("AI OR LLM" matches nothing); optionalWords makes
             # every word optional, so a story matching any one of them is returned.
             "query": self.words,
@@ -55,7 +61,12 @@ class HackerNewsCollector(BaseCollector):
             "tags": "story",
             "numericFilters": f"created_at_i>{since},points>{self.min_points}",
             "hitsPerPage": self.limit,
-        })
+        }
+        if self.title_only:
+            # Typo tolerance is off too: with it, "Adapting ..." matches "agentic".
+            params["restrictSearchableAttributes"] = "title"
+            params["typoTolerance"] = "false"
+        res = await self.get(client, "https://hn.algolia.com/api/v1/search_by_date", params=params)
         return parse_hacker_news(res.json(), source=self.name, category=self.category)
 
 
@@ -113,12 +124,13 @@ class GitHubSearchCollector(BaseCollector):
     Unauthenticated search allows 10 requests/minute, plenty for a scheduled sweep.
     """
 
-    category = "tooling"
     host = "api.github.com"
 
     def __init__(self, name: str = "github_new_llm_repos",
-                 query: str = "topic:llm created:>{since} stars:>20", days_back: int = 7, limit: int = 6):
+                 query: str = "topic:llm created:>{since} stars:>20", days_back: int = 7, limit: int = 6,
+                 category: str = "tooling"):
         self.name = name
+        self.category = category
         self.query = query
         self.days_back = days_back
         self.limit = limit

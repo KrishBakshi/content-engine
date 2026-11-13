@@ -9,7 +9,9 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 
 SUMMARY_MAX = 250  # the spec said 300; 250 is enough to say what an item is
-CATEGORIES = ("community", "research", "tooling", "engineering_blogs")
+# Order is the order of sections in the brief: the two focus topics first.
+CATEGORIES = ("agents", "physical_ai", "community", "research", "tooling", "engineering_blogs")
+CATEGORY_LABELS = {"agents": "Agent AI", "physical_ai": "Physical AI"}  # others are title-cased
 
 _TAG_RE = re.compile(r"<[^>]+>")
 _WS_RE = re.compile(r"\s+")

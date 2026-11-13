@@ -19,11 +19,15 @@ from content_engine.schema import Item
 _SUB_RE = re.compile(r"/r/([^/]+)/", re.IGNORECASE)
 # The combined hot list is ranked across subreddits, so big ones crowd small ones out;
 # fetch wide and cap each subreddit at `per_sub`.
-FETCH_LIMIT = 50
+FETCH_LIMIT = 100  # Reddit's maximum per request
 
 
-def split_by_subreddit(items: list[Item], subreddits: list[str], per_sub: int) -> list[Item]:
-    wanted = {s.lower(): s for s in subreddits}
+def split_by_subreddit(items: list[Item], subreddits: dict[str, str] | list[str], per_sub: int) -> list[Item]:
+    """`subreddits` maps each subreddit to the category its posts go under (a plain list
+    means "community" for all)."""
+    if not isinstance(subreddits, dict):
+        subreddits = {s: "community" for s in subreddits}
+    wanted = {s.lower(): category for s, category in subreddits.items()}
     counts: dict[str, int] = {}
     out = []
     for item in items:
@@ -32,7 +36,7 @@ def split_by_subreddit(items: list[Item], subreddits: list[str], per_sub: int) -
         if sub not in wanted or counts.get(sub, 0) >= per_sub:
             continue
         counts[sub] = counts.get(sub, 0) + 1
-        out.append(Item(**{**item.to_dict(), "source": f"reddit_{sub}"}))
+        out.append(Item(**{**item.to_dict(), "source": f"reddit_{sub}", "category": wanted[sub]}))
     return out
 
 
@@ -40,7 +44,7 @@ class RedditCollector(BaseCollector):
     category = "community"
     host = "www.reddit.com"
 
-    def __init__(self, subreddits: list[str], per_sub: int = 8, name: str = "reddit"):
+    def __init__(self, subreddits: dict[str, str] | list[str], per_sub: int = 8, name: str = "reddit"):
         self.name = name
         self.subreddits = subreddits
         self.per_sub = per_sub

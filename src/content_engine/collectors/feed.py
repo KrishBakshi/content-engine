@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime, timedelta, timezone
 import xml.etree.ElementTree as ET
 from urllib.parse import urlsplit
 
@@ -46,10 +47,14 @@ _ARXIV_PREFIX_RE = re.compile(r"^arXiv:\S+\s+Announce Type:\s*\S+\s+Abstract:\s*
 _REDDIT_TRAILER_RE = re.compile(r"\s*submitted by\s+/u/\S+(\s+to\s+r/\S+)?\s*\[link\]\s*\[comments\]\s*$", re.I)
 
 
+# WordPress appends "The post <title> appeared first on <site>." to every description.
+_WP_FOOTER_RE = re.compile(r"\s*The post .+? appeared first on .+?\.?\s*$", re.I | re.S)
+
+
 def _summary(raw: str) -> str:
     text = clean_text(_HEADING_RE.sub(" ", raw))
     text = _ARXIV_PREFIX_RE.sub("", _TRAILER_RE.sub(" ", text))
-    text = _REDDIT_TRAILER_RE.sub("", text).strip()
+    text = _WP_FOOTER_RE.sub("", _REDDIT_TRAILER_RE.sub("", text)).strip()
     return "" if text.lower() in _EMPTY_SUMMARIES else truncate(text)
 
 
@@ -90,18 +95,39 @@ def parse_feed(content: bytes, *, source: str, category: str, limit: int, metric
     return items
 
 
+def newer_than(items: list[Item], max_age_days: float, now: datetime | None = None) -> list[Item]:
+    """Drop items published more than `max_age_days` ago. Undated items are kept."""
+    cutoff = (now or datetime.now(timezone.utc)) - timedelta(days=max_age_days)
+    out = []
+    for item in items:
+        try:
+            published = datetime.fromisoformat(item.published_at.replace("Z", "+00:00"))
+        except ValueError:
+            out.append(item)
+            continue
+        if published >= cutoff:
+            out.append(item)
+    return out
+
+
 class FeedCollector(BaseCollector):
+    """`max_age_days` is for slow feeds (a weekly newsletter, a spec that releases twice a
+    year): without it their last few posts would sit in every brief for months. Such a feed
+    is often legitimately empty, so setting it also sets `empty_ok`."""
+
     def __init__(self, name: str, category: str, url: str, limit: int = 5, metric: str = "Article",
-                 empty_ok: bool = False):
+                 empty_ok: bool = False, max_age_days: float | None = None):
         self.name = name
         self.category = category
         self.url = url
         self.limit = limit
         self.metric = metric
         self.host = urlsplit(url).hostname
-        self.empty_ok = empty_ok
+        self.max_age_days = max_age_days
+        self.empty_ok = empty_ok or max_age_days is not None
 
     async def fetch(self, client: httpx.AsyncClient) -> list[Item]:
         res = await self.get(client, self.url)
-        return parse_feed(res.content, source=self.name, category=self.category,
-                          limit=self.limit, metric=self.metric)
+        items = parse_feed(res.content, source=self.name, category=self.category,
+                           limit=self.limit, metric=self.metric)
+        return newer_than(items, self.max_age_days) if self.max_age_days is not None else items
