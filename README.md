@@ -65,7 +65,8 @@ And every item in `items.json` has the same fields:
   "summary": "This notice is about the security incident at one of our vendors, Fireworks AI...",
   "metric": "33 pts | 7 comments",
   "published_at": "2026-11-10T07:19:38Z",
-  "delivered": false
+  "delivered": false,
+  "also_in": []
 }
 ```
 
@@ -109,10 +110,25 @@ with `--retention-days 7` or the `CONTENT_ENGINE_RETENTION_DAYS` setting.
 ```
 data/
   latest/             the newest brief.md and items.json
-  runs/<timestamp>/   one folder per run, kept for 4 days
+  runs/<timestamp>/   one folder per run (items, trending, brief, report), kept for 4 days
   status.json         did the last run work? which sources failed?
   history.jsonl       one line per run
 ```
+
+## Trending topics
+
+The top of `brief.md` is a short list of what is being talked about most, so you can stop
+reading after it:
+
+- **Trending topics** (up to 5): a name that several unrelated sources are writing about
+  (for example a CEO resigning, covered by Reddit, a newsletter and a news site), or one
+  link that more than one source carried (a blog post that is also on Hacker News).
+- **Most discussed**: the Hacker News stories with the most points, up to 3, above 50 points.
+
+It is worked out from `items.json` with plain rules, no AI: names are recognised by how the
+feeds capitalise them, and a source writing about itself (NVIDIA's blog naming NVIDIA)
+doesn't count. The result is also saved as `trending.json`, and the labels are listed in
+`report.json` as `trending_topics`. On a quiet day there may be none, or only one.
 
 ## New vs already delivered
 
@@ -120,8 +136,8 @@ The engine remembers what earlier runs carried, so you can tell fresh news from 
 
 - **`items.json`**: each item has `delivered`. `false` means no earlier run had it; `true`
   means it was already in a previous brief.
-- **`brief.md`**: written from `items.json`, with a **New** part first and an
-  **Already delivered** part after it. `--new-only` leaves the second part out.
+- **`brief.md`**: written from `items.json`, with the trending topics first, then a **New**
+  part and an **Already delivered** part. `--new-only` leaves the last part out.
 - **`report.json`**: per source, how many items were `new` and how many `already_delivered`.
 
 Every run keeps its own `items.json`, so you can go back to any run from the last 4 days

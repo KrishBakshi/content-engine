@@ -102,6 +102,7 @@ Everything a monitor needs is in files under the data dir. No extra service has 
 | `status.json` | Last run: **`health`** (see below), `state` (`ok` / `partial` / `failed`), `started_at`, `items`, `sources_ok`/`sources_total`, `failed_sources`, `empty_sources`, per-source `ok`/`items`/`error`/`duration_ms`, `enrichment` counts (weak summaries filled from linked pages), `cleanup` counts |
 | `history.jsonl` | One line per run (`run_id`, `state`, `items`, `new_items`, `already_delivered`, `failed_sources`, `empty_sources`, ...), pruned to the retention window. Use it for success-rate and item-count charts |
 | `latest/brief.md` | The newest markdown brief, for prompt injection |
+| `latest/trending.json` | `topics` (label, mentions, sources, points, score, urls) and `most_discussed` urls for the newest run |
 | `latest/items.json` | The newest normalized items. Each has `delivered`: `true` if an earlier run already carried it, `false` if it is new |
 | `runs/<id>/report.json` | That run's outcome, with `new_items` / `already_delivered` totals and `new` / `already_delivered` per source |
 | `runs/<YYYYmmddTHHMMSSZ>/` | Every run in the window: `items.json`, `brief.md`, `report.json` |

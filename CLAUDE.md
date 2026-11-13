@@ -55,9 +55,20 @@ live run and check `status.json`: every source should show `ok: true`.
   with `--plain`): log lines are held back while it spins, then only warnings and errors are
   printed (everything with `-v`), then a one-line result. Under systemd or cron nothing changes: no spinner, logs stream as they happen. The
   engine reports progress through `on_progress(stage, done, total, detail)`; it never prints.
+- `trending.py`: trending topics from the item dicts (`find_trending`), no LLM. A topic is a
+  name that independent sources share: names are learned from how feeds capitalise them
+  (capitalised mid-sentence more often than lowercase, inner capitals, or a never-lowercase
+  word that starts two items); title words only, plus the first 160 characters of a summary
+  for two-word names and "Name 4"-style versions. A source's own name doesn't count for it
+  (`OWN_NAMES`); three subreddits or three HN queries are one voice (`schema.source_family`);
+  one-word names need 3 voices, two-word names 2; broad names (`BROAD`) never start a topic.
+  A shorter name folds into a topic only if it is part of the topic's own name; topics that
+  are mostly the same items are merged. The engine records a link carried by several sources
+  as `also_in` on the item instead of dropping it. Tune only with a failing test first: an
+  earlier version let "search" and "Times" create topics.
 - `storage.py`: data layout, atomic writes, lock, retention, and the save chain. `save_run`
   marks each item `delivered` against `delivered.json` (urls earlier runs carried), writes
-  `items.json`, renders `brief.md` from that same list (`render.py`: New first, then Already
+  `items.json`, works out `trending.json` from it, renders `brief.md` from both (`render.py`: New first, then Already
   delivered), and writes `report.json` with `new` / `already_delivered` per source.
   `cli.py`: `run` / `clean` / `sources` and the exit codes.
 - `deploy/`: `templates/*.template` are the source of truth. `systemd/` and `cron/` hold them
