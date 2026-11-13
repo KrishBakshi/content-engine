@@ -55,7 +55,10 @@ live run and check `status.json`: every source should show `ok: true`.
   with `--plain`): log lines are held back while it spins, then only warnings and errors are
   printed (everything with `-v`), then a one-line result. Under systemd or cron nothing changes: no spinner, logs stream as they happen. The
   engine reports progress through `on_progress(stage, done, total, detail)`; it never prints.
-- `render.py`: markdown brief. `storage.py`: data layout, atomic writes, lock, retention.
+- `storage.py`: data layout, atomic writes, lock, retention, and the save chain. `save_run`
+  marks each item `delivered` against `delivered.json` (urls earlier runs carried), writes
+  `items.json`, renders `brief.md` from that same list (`render.py`: New first, then Already
+  delivered), and writes `report.json` with `new` / `already_delivered` per source.
   `cli.py`: `run` / `clean` / `sources` and the exit codes.
 - `deploy/`: `templates/*.template` are the source of truth. `systemd/` and `cron/` hold them
   rendered with defaults, and `tests/test_deploy.py` checks they match. Edit the template,
@@ -75,6 +78,11 @@ live run and check `status.json`: every source should show `ok: true`.
 - **Summaries are quoted, never rewritten.** Feed text or the publisher's own preview text,
   cut at 250 characters. No abbreviating or paraphrasing; the link has the rest. (The spec said
   300; the user chose 250.)
+- **items.json first, brief.md from it.** The brief is only a view of items.json; don't give
+  it content the data doesn't have. `delivered` means "an earlier saved run carried this url",
+  judged against every run in the retention window, not just the previous one, so an item
+  that drops out for an hour and returns isn't announced as new again. The record is pruned
+  by last-seen date for the same reason.
 - **Schema is the contract.** Downstream agents read `items.json`, `status.json` and
   `history.jsonl`. Add keys if you need to, but don't rename or remove them.
 - **Retention only deletes what the engine made**: directories named as run ids, `.tmp-*` dirs

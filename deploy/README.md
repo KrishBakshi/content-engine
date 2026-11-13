@@ -100,9 +100,10 @@ Everything a monitor needs is in files under the data dir. No extra service has 
 | Path | Use |
 |---|---|
 | `status.json` | Last run: **`health`** (see below), `state` (`ok` / `partial` / `failed`), `started_at`, `items`, `sources_ok`/`sources_total`, `failed_sources`, `empty_sources`, per-source `ok`/`items`/`error`/`duration_ms`, `enrichment` counts (weak summaries filled from linked pages), `cleanup` counts |
-| `history.jsonl` | One line per run (`run_id`, `state`, `items`, `failed_sources`, `empty_sources`, ...), pruned to the retention window. Use it for success-rate and item-count charts |
+| `history.jsonl` | One line per run (`run_id`, `state`, `items`, `new_items`, `already_delivered`, `failed_sources`, `empty_sources`, ...), pruned to the retention window. Use it for success-rate and item-count charts |
 | `latest/brief.md` | The newest markdown brief, for prompt injection |
-| `latest/items.json` | The newest normalized items |
+| `latest/items.json` | The newest normalized items. Each has `delivered`: `true` if an earlier run already carried it, `false` if it is new |
+| `runs/<id>/report.json` | That run's outcome, with `new_items` / `already_delivered` totals and `new` / `already_delivered` per source |
 | `runs/<YYYYmmddTHHMMSSZ>/` | Every run in the window: `items.json`, `brief.md`, `report.json` |
 
 Exit codes: `0` the run finished (state `ok` or `partial`); `1` every source failed, or a
