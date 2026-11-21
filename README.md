@@ -79,9 +79,9 @@ publisher wrote for it. Nothing is rewritten and no AI is involved.
 
 | Topic | Where it comes from |
 |---|---|
-| **Agent AI** | Anthropic engineering · LangChain · GitHub AI blog · Microsoft Agent Framework · Latent Space · Simon Willison · The New Stack · arXiv cs.MA · new agent repos on GitHub · OpenAI Agents SDK and MCP spec releases · Hacker News (agents) · r/AI_Agents |
-| **Physical AI** | NVIDIA robotics (blog and developer blog) · The Robot Report · IEEE Spectrum robotics · Robohub · Weekly Robotics · arXiv cs.RO · new robotics repos on GitHub · LeRobot and Isaac Lab releases · Hacker News (robotics) · r/robotics |
-| **Community** | Hacker News · Reddit (r/LocalLLaMA, r/MachineLearning) · Lobsters · Techmeme |
+| **Agent AI** | Anthropic engineering · LangChain · GitHub AI blog · Microsoft Agent Framework · Latent Space · Simon Willison · The New Stack · arXiv cs.MA · new agent repos on GitHub · OpenAI Agents SDK and MCP spec releases · Hacker News (agents) |
+| **Physical AI** | NVIDIA robotics (blog and developer blog) · The Robot Report · IEEE Spectrum robotics · Robohub · Weekly Robotics · arXiv cs.RO · new robotics repos on GitHub · LeRobot and Isaac Lab releases · Hacker News (robotics) |
+| **Community** | Hacker News · Lobsters · Techmeme |
 | **Research** | Hugging Face daily papers · arXiv (cs.AI, cs.LG, cs.CL) |
 | **Tooling** | New LLM repos on GitHub · llama.cpp releases · vLLM releases |
 | **Engineering blogs** | Anthropic research and science · Google Research · OpenAI · Meta Engineering · Cloudflare |

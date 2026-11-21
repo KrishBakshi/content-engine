@@ -2,9 +2,11 @@
 
 Deviations from the spec's registry (docs/project_engine_instructions.md, section 3),
 found by probing every endpoint on 2026-11-10:
-- Reddit `hot.json` returns 403 to unauthenticated clients; `hot.rss` (Atom) works but has
-  no score, so Reddit items carry metric "hot" instead of points. Both subreddits come from
-  one request (see collectors/reddit.py for the rate limit).
+- Reddit is not in the registry. `hot.json` returns 403 to unauthenticated clients, and
+  Reddit ended RSS on 2026-11-13: since then every `.rss` URL on www.reddit.com is 404 with
+  an empty "Not Found" Atom feed (browser User-Agent too) and old.reddit.com redirects to
+  login. Probed 2026-11-21 after the source failed every run. collectors/reddit.py is kept
+  for when an authenticated (OAuth) fetch replaces the feed.
 - Anthropic publishes no feed (`/feed.xml`, `/rss.xml`, `/news/rss.xml` are all 404). It is
   read from its listing pages instead (collectors/listing.py), added 2026-11-13 at the
   user's request: /engineering, /research and /science.
@@ -30,7 +32,6 @@ from content_engine.collectors.api import GitHubSearchCollector, HackerNewsColle
 from content_engine.collectors.base import BaseCollector
 from content_engine.collectors.feed import FeedCollector
 from content_engine.collectors.listing import ListingPageCollector
-from content_engine.collectors.reddit import RedditCollector
 
 
 def default_collectors() -> list[BaseCollector]:
@@ -91,9 +92,6 @@ def default_collectors() -> list[BaseCollector]:
                       1, "Release", max_age_days=30),
         # --- community ---
         HackerNewsCollector(words="AI LLM", hours_back=24, min_points=25, limit=10),
-        # One request for all subreddits (see collectors/reddit.py); each lands in its own section.
-        RedditCollector({"LocalLLaMA": "community", "MachineLearning": "community",
-                         "AI_Agents": "agents", "robotics": "physical_ai"}, per_sub=8),
         FeedCollector("lobsters_ai", "community", "https://lobste.rs/t/ai.rss", 6, "Discussion"),
         FeedCollector("techmeme", "community", "https://www.techmeme.com/feed.xml", 6, "News"),
         # research (arXiv feeds are empty on days with no announcement, e.g. weekends)

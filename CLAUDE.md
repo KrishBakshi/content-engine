@@ -30,7 +30,8 @@ live run and check `status.json`: every source should show `ok: true`.
   and not silently counted as zero items.
 - `collectors/feed.py`: generic RSS 2.0 + Atom (`FeedCollector`, `parse_feed`). Most sources are
   just a `FeedCollector(...)` line. `collectors/api.py`: HN Algolia, HF papers, GitHub search.
-  `collectors/reddit.py`: one multireddit request split per subreddit.
+  `collectors/reddit.py`: one multireddit request split per subreddit; not registered since
+  Reddit ended RSS (2026-11-13).
   `collectors/listing.py`: for sites with no feed (Anthropic): article links from a listing
   page, then title, summary and date from each article's meta tags. More fragile than a feed
   and one request per article, so use it only when there is no feed.

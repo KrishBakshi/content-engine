@@ -90,9 +90,8 @@ Environment: `CONTENT_ENGINE_DATA_DIR`, `CONTENT_ENGINE_RETENTION_DAYS`,
 Exit codes: `0` finished (even if `partial`), `1` every source failed or it crashed, `75`
 another run holds the lock, which means skip, not retry in a loop.
 
-**Don't run it more than about once an hour.** Reddit allows roughly one anonymous request a
-minute, and the run spends it. A second run within a minute marks Reddit as failed. The server
-already runs it on a timer, so check `started_at` first: if it is recent, just read the files.
+**Don't run it more than about once an hour.** The server already runs it on a timer, so check
+`started_at` first: if it is recent, just read the files.
 
 ## 4. Add or remove a source
 

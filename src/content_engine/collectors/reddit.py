@@ -1,5 +1,9 @@
 """Reddit via the public Atom feed, all subreddits in one request.
 
+Not registered: Reddit ended RSS on 2026-11-13 and every `.rss` URL is now 404 (see the
+sources.py docstring). Kept for an authenticated replacement; `split_by_subreddit` still
+applies to any combined listing.
+
 Anonymous `hot.json` is 403, and `hot.rss` allows about one request per minute
 (`x-ratelimit-remaining: 0.0` after a single call), so fetching each subreddit
 separately gets the second one a 429. A multireddit (`/r/A+B/hot.rss`) costs one
